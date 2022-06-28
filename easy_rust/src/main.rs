@@ -1,4 +1,5 @@
 use std::io::prelude::*;
+use std::str;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use serde::{Serialize, Deserialize};
@@ -9,34 +10,81 @@ struct Data {
 }
 
 fn main() {
-    print!("Starting at 127.0.0.1:7878");
+    println!("Starting at 127.0.0.1:7878");
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    print!("Starting at 127.0.0.1:7878");
+    println!("Starting at 127.0.0.1:7878");
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        print!("Got connection");
+        println!("Got connection");
         handle_connection(stream);
     }
 }
 
+fn read_stream(stream: &mut TcpStream) -> (String, usize) {
+    let buffer_size = 512;
+    let mut request_buffer = vec![];
+    // let us loop & try to read the whole request data
+    let mut request_len = 0usize;
+    loop {
+        let mut buffer = vec![0; buffer_size];
+        match stream.read(&mut buffer) {
+            Ok(n) => {
+
+                if n == 0 {
+                    break;
+                } else {
+                    request_len += n;
+                    request_buffer.append(&mut buffer);
+
+                    // we need not read more data in case we have read less data than buffer size
+                    if n < buffer_size {
+                        break;
+                    }
+                }
+            },
+
+            Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+        }
+    }
+
+    let s = match str::from_utf8(&request_buffer) {
+        Ok(v) => v,
+        Err(e) => panic!("Invalid UTF-8 sequence: {}", e),
+    };
+    (s.to_string(), request_len)
+}
+
 fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = String::new();
+    let (mut request, mut len) = read_stream(&mut stream);
+    //let mut buffer = String::new();
 
-    stream.read_to_string(&mut buffer).unwrap();
+    //stream.read_line(&mut buffer).unwrap();
 
-    print!("Stream: {}", buffer);
+    if request.contains("Expect: 100-continue") {
+        let response = format!(
+            "HTTP/1.1 100 OK\r\n",
+        );
 
-    let mut v:Data = serde_json::from_str(&buffer).unwrap();
+        stream.write(response.as_bytes()).unwrap();
+        stream.flush().unwrap();
 
-    print!("{:?}", &mut v.test);
+        (request, len) = read_stream(&mut stream);
+        request.truncate(len);
+    }
 
-    let contents = insertion_sort(&mut v.test);
+    let mut v:Data = serde_json::from_str(&request).unwrap();
+
+    print!("Deserialised {} numbers", v.test.len());
+
+    v.test = insertion_sort(&mut v.test).to_vec();
+
+    let content = serde_json::to_string(&v).expect("wow");
 
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{:?}",
-        contents.len(),
-        contents
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n{:?}\r\n",
+        content.len() + 46,
+        content
     );
 
     stream.write(response.as_bytes()).unwrap();
