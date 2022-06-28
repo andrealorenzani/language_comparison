@@ -1,24 +1,23 @@
 use std::io::prelude::*;
 use std::str;
-use std::net::TcpListener;
-use std::net::TcpStream;
+use std::net::{TcpListener, TcpStream, Shutdown};
 use serde::{Serialize, Deserialize};
+use std::thread;
+use std::time::SystemTime;
 
 #[derive(Debug, Serialize,Deserialize)]
 struct Data {
     test: Vec<i64>
 }
 
-fn main() {
+fn main() -> std::io::Result<()>{
     println!("Starting at 127.0.0.1:7878");
     let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    println!("Starting at 127.0.0.1:7878");
-
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-        println!("Got connection");
-        handle_connection(stream);
+        handle_connection(stream).unwrap();
     }
+    Ok(())
 }
 
 fn read_stream(stream: &mut TcpStream) -> (String, usize) {
@@ -55,12 +54,9 @@ fn read_stream(stream: &mut TcpStream) -> (String, usize) {
     (s.to_string(), request_len)
 }
 
-fn handle_connection(mut stream: TcpStream) {
+fn handle_connection(mut stream: TcpStream) -> std::io::Result<()> {
     let (mut request, mut len) = read_stream(&mut stream);
-    //let mut buffer = String::new();
-
-    //stream.read_line(&mut buffer).unwrap();
-
+    
     if request.contains("Expect: 100-continue") {
         let response = format!(
             "HTTP/1.1 100 OK\r\n",
@@ -75,27 +71,43 @@ fn handle_connection(mut stream: TcpStream) {
 
     let mut v:Data = serde_json::from_str(&request).unwrap();
 
-    print!("Deserialised {} numbers", v.test.len());
+    println!("Deserialised {} numbers", v.test.len());
+
+    let mut now = SystemTime::now();
 
     v.test = insertion_sort(&mut v.test).to_vec();
+
+    println!("Insertion sort: {} millis", now.elapsed().expect("wow").as_millis());
+    now = SystemTime::now();
+
+    for i in 0..200 {
+        let mut newvec = v.test.to_vec();
+        let index = i;
+        thread::spawn(move || {
+            insertion_sort(&mut newvec).to_vec();
+            println!("Insertion sort in thread {}: {} millis", index, now.elapsed().expect("wow").as_millis());
+        });
+    }
 
     let content = serde_json::to_string(&v).expect("wow");
 
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n{:?}\r\n",
-        content.len() + 46,
+        "HTTP/1.1 200 OK\r\nConnection:close\r\nContent-Length: {}\r\n{:?}\r\n",
+        content.len(),
         content
     );
 
     stream.write(response.as_bytes()).unwrap();
     stream.flush().unwrap();
+    stream.shutdown(Shutdown::Both).unwrap();
+    Ok(())
 }
 
 fn insertion_sort(vec: &mut[i64]) -> &[i64] {
     let array: &mut [i64] = vec;
     for i in 0..array.len() {
         // Start comparing current element with every element before it
-        for j in i..=0 {
+        for j in (0..i).rev() {
           
             // Swap elements as required
             if array[j + 1] < array[j] {
