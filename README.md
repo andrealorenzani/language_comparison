@@ -34,11 +34,20 @@ docker ps
 docker stop <CONTAINER ID>
 
 ## Rust
-on easy_spring run
+on easy_rust run
 cargo build --release
 docker build . -t andlorenzani/simple-rust-server:0.0.1
 to run it
 docker run -p 49162:7878 -d andlorenzani/simple-rust-server:0.0.1
+to stop it
+docker ps
+docker stop <CONTAINER ID>
+
+## Python
+on easy_python run
+docker build . -t andlorenzani/simple-python-server:0.0.1
+to run it
+docker run -p 49163:49163 -d andlorenzani/simple-python-server:0.0.1
 to stop it
 docker ps
 docker stop <CONTAINER ID>

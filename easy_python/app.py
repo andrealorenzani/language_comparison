@@ -13,22 +13,38 @@ server = FastAPI()
 @server.post("/test")
 async def insertion_sort_endpoint(request: Request):
     import time
-    threads = []
+    print("Computing insertion sort on \n "+str(request.test))
     start_single = time.perf_counter()
     ordered = insertion_sort(request.test)
     end_single = time.perf_counter()
-    import threading
-    for thnum in range(200):
-        x = threading.Thread(target=thread_core, args=(request.test,thnum))
-        x.start()
-        threads.append(x)
-    for thread in threads:
-        thread.join()
+    run_process_pool(200, request.test)
     end_threading = time.perf_counter()
     print("Total computation: "+str(end_threading-start_single))
     print("Single computation: "+str(end_single-start_single))
     print("Thread computation: "+str(end_threading-end_single))
     return {"result": ordered}
+
+def run_threads(n_threads, values):
+    import threading
+    threads = []
+    for thnum in range(n_threads):
+        x = threading.Thread(target=thread_core, args=(values,thnum))
+        x.start()
+        threads.append(x)
+    for thread in threads:
+        thread.join()
+
+def run_thread_pool(n_threads, values):
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as executor:
+        for thnum in range(n_threads):
+            executor.submit(thread_core, values, thnum)
+
+def run_process_pool(n_threads, values):
+    import concurrent.futures
+    with concurrent.futures.ProcessPoolExecutor(max_workers=n_threads) as executor:
+        for thnum in range(n_threads):
+            executor.submit(thread_core, values, thnum)
 
 def thread_core(values, thread_num):
     print("Starting thread "+str(thread_num))
