@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.9
 # -*- coding: utf-8 -*-
 # pip install "fastapi[all]"
 
@@ -15,7 +15,7 @@ async def insertion_sort_endpoint(request: Request):
     import time
     print("Computing insertion sort on \n "+str(request.test))
     start_single = time.perf_counter()
-    ordered = insertion_sort(request.test)
+    ordered = insertion_sort(request.test.copy())
     end_single = time.perf_counter()
     run_process_pool(200, request.test)
     end_threading = time.perf_counter()
@@ -48,13 +48,13 @@ def run_process_pool(n_threads, values):
 
 def thread_core(values, thread_num):
     print("Starting thread "+str(thread_num))
-    insertion_sort(values)
+    insertion_sort(values.copy())
     print("Ending thread thread "+str(thread_num))
 
-def insertion_sort(values_raw):
-    values = values_raw.copy()
+def insertion_sort(values):
     for x in range(1, len(values)):
-        for j in reversed(range(x)):
+        for y in range(x):
+            j = x-1-y
             if values[j + 1] < values[j]:
                 swap = values[j + 1]
                 values[j+1] = values[j]

@@ -8,7 +8,7 @@ if (!Date.ts) {
 }
 
 // Constants
-const PORT = 8080;
+const PORT = 8081;
 const HOST = '0.0.0.0';
 
 // App
@@ -30,7 +30,7 @@ var farmprocend = 0;
 app.post('/', (req, res) => {
   console.log(req.body);
   console.time("Execution");
-  var result = insertion_sort.insertion_sort(req.body.test);
+  var result = insertion_sort.insertion_sort(req.body.test.map((x) => x));
   console.timeEnd("Execution");
   console.time("ExecutionFarm");
   farmprocstart = Date.ts();
@@ -41,7 +41,7 @@ app.post('/', (req, res) => {
 
 var start_farm = function(arr) {
   for (let i = 0; i < 200; i++) {
-    start_worker(arr, i);
+    start_worker(arr.map((x) => x), i);
   }
 }
 
